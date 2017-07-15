@@ -1,9 +1,13 @@
+#!/usr/bin/env python
+
 import picamera
 import time
 import RPi.GPIO as GPIO
 import settings
 
 from datetime import datetime
+
+from debounce import Debounce
 
 
 def get_timestamp():
@@ -14,7 +18,8 @@ def get_filename(prefix='IMG', ext='jpg', output_dir=settings.PHOTO_OUTPUT_DIREC
     return '%s/%s_%s.%s' % (output_dir, prefix, get_timestamp(), ext)
 
 
-def take_photo():
+@Debounce
+def take_photo(pin):
     print 'take_photo'
     with picamera.PiCamera() as camera:
         print 'starting up camera'
@@ -25,7 +30,8 @@ def take_photo():
         print 'captured image: %s' % filename
 
 
-def take_video():
+@Debounce
+def take_video(pin):
     print 'take_video'
     with picamera.PiCamera() as camera:
         print 'starting up camera'
@@ -40,21 +46,17 @@ def take_video():
 
 def setup_button():
     GPIO.setmode(GPIO.BCM)
+
     GPIO.setup(settings.CAMERA_GPIO_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.setup(settings.VIDEO_GPIO_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+    GPIO.add_event_detect(settings.CAMERA_GPIO_PIN, GPIO.RISING, take_photo, bouncetime=250)
+    GPIO.add_event_detect(settings.VIDEO_GPIO_PIN, GPIO.RISING, take_video, bouncetime=250)
     print 'setup complete'
 
 
 setup_button()
 
+# This is a really hacky way to run forever
 while True:
-    camera_input_state = GPIO.input(settings.CAMERA_GPIO_PIN)
-    video_input_state = GPIO.input(settings.VIDEO_GPIO_PIN)
-
-    if not camera_input_state:
-        take_photo()
-    elif not video_input_state:
-        take_video()
-
-    time.sleep(.2)
-
+    time.sleep(1e6)
